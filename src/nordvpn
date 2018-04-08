@@ -57,11 +57,15 @@ ensure_infos() {
 patch_config_file() {
     local -r f=$1
     local -r targetdir=$2
+    local -r bf=$(basename $f)
+    local -a tok=($(echo $bf | tr '.' ' '))
+    local -r s="${tok[0]}"
+    local -r p="${tok[3]:0:3}"
 
+    echo -e "# $s $p $(grep 'remote ' $f | awk '{ print $2 " " $3 }')\n\n$(cat $f)" > $f
     sed 's/^auth-user-pass.*$/auth-user-pass \/etc\/openvpn\/client\/nordvpn\/credentials.conf/g' -i $f
-    install -D -m 444 $f $targetdir/conf/$(basename $f)
-    local -a tok=($(basename $f | tr '.' ' '))
-    ln -s $targetdir/conf/$(basename $f) $targetdir/../nordvpn_${tok[0]}_${tok[3]:0:3}.conf
+    install -D -m 444 $f $targetdir/conf/$bf
+    ln -s $targetdir/conf/$bf $targetdir/../nordvpn_${s}_${p}.conf
 }
 
 update_files() {
