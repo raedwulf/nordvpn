@@ -1,19 +1,19 @@
-Nordvpn
-=======
+Nordvpn for OpenRC
+==================
 
 Introduction
 ------------
 
 `nordvpn` is a command line helper script to use nordvpn.com for
 systems with `openvpn` and `systemd`.
-It was created for Arch Linux but should run without too much
-difficulty on systems that satisfy the following dependency list:
+It was created for OpenRC-based Artix Linux but should run without
+too much difficulty on systems that satisfy the following dependency list:
 - openvpn,
-- systemd,
+- OpenRC,
 - curl,
 - unzip,
 - ping,
-- openvpn-update-resolv-conf or vpnfailsafe.
+- vpnfailsafe.
 
 Quickstart
 ----------

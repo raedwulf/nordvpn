@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 exit_msg() {
     (>&2 echo "$2")
@@ -6,7 +6,7 @@ exit_msg() {
 }
 
 get_service() {
-    systemctl --type=service | grep openvpn-client@nordvpn | awk '{print $1}'
+    rc-status | grep openvpn.nordvpn | cut -d' ' -f 2
 }
 
 run_ping() {
@@ -30,9 +30,9 @@ run_ping() {
 }
 
 ensure_infos() {
-    if ! which python 1>/dev/null 2>&1;
+    if ! which python3 1>/dev/null 2>&1;
     then
-        exit_msg 1 "python and pandas are required."
+        exit_msg 1 "python3 and pandas are required."
     fi
     declare -i force_update=0
     case "$1" in
@@ -59,10 +59,6 @@ patch_config_file() {
     local -r targetdir=$2
 
     sed 's/^auth-user-pass.*$/auth-user-pass \/etc\/openvpn\/client\/nordvpn\/credentials.conf/g' -i $f
-    echo "" >> $f
-    echo "script-security 2" >> $f
-    echo "up /etc/openvpn/client/nordvpn/updown" >> $f
-    echo "down /etc/openvpn/client/nordvpn/updown" >> $f
     install -D -m 444 $f $targetdir/conf/$(basename $f)
     local -a tok=($(basename $f | tr '.' ' '))
     ln -s $targetdir/conf/$(basename $f) $targetdir/../nordvpn_${tok[0]}_${tok[3]:0:3}.conf
@@ -119,7 +115,7 @@ update_files() {
     rm -rf $targetdir/conf && mkdir -p $targetdir/conf
 
     export -f patch_config_file
-    find conf -name '*.ovpn' | xargs -P $(($(nproc --all)-1)) -n1 -I{} sh -c "patch_config_file {} $targetdir"
+    find conf -name '*.ovpn' | xargs -P $(($(nproc --all)-1)) -n1 -I{} bash -c "patch_config_file {} $targetdir"
 
     local cred_file=$targetdir/credentials.conf
     if [ -f credentials.conf ]; then
@@ -262,12 +258,12 @@ case $command in
         then
             exit 1
         fi
-        python3 /etc/openvpn/client/nordvpn/servers.py $servers_filename
+        /etc/openvpn/client/nordvpn/servers.py $servers_filename
         ;;
     best)
         case "$1" in
             -h|--help)
-            python /etc/openvpn/client/nordvpn/servers.py --help
+            /etc/openvpn/client/nordvpn/servers.py --help
             ;;
         *)
             servers_filename=$(ensure_infos "$1")
@@ -275,7 +271,7 @@ case $command in
             then
                 exit 1
             fi
-            python /etc/openvpn/client/nordvpn/servers.py $servers_filename --ranking "$@"
+            /etc/openvpn/client/nordvpn/servers.py $servers_filename --ranking "$@"
             ;;
         esac
         ;;
@@ -298,7 +294,7 @@ case $command in
         ;;
     status)
         service=$(get_service)
-        test -z "$service" || systemctl status $service
+        test -z "$service" || rc-status | grep openvpn.nordvpn
         ;;
     start)
         conn_type='udp'
@@ -309,32 +305,27 @@ case $command in
                 ;;
         esac
         service=$(get_service)
-        updown=/etc/openvpn/client/nordvpn/updown
         test -z "$service" || $0 stop
-        if [ -x /etc/openvpn/vpnfailsafe.sh ]; then
-            ln -fs /etc/openvpn/vpnfailsafe.sh $updown
-        else
-            ln -fs /etc/openvpn/update-resolv-conf $updown
-        fi
+        ln -fs /etc/openvpn/vpnfailsafe.sh /etc/openvpn/openvpn.nordvpn-up.sh
+        ln -fs /etc/openvpn/vpnfailsafe.sh /etc/openvpn/openvpn.nordvpn-down.sh
         if [ ! -f /etc/openvpn/client/nordvpn_${1}_${conn_type}.conf ]; then
             exit_msg 1 "${1} is not a valid nordvpn server. Exiting."
         fi
-        systemctl $command openvpn-client@nordvpn_${1}_${conn_type}
+        cp "/etc/openvpn/client/nordvpn_${1}_${conn_type}.conf" "/etc/openvpn/nordvpn.conf"
+        /etc/init.d/openvpn.nordvpn $command
         ;;
     stop|restart)
         service=$(get_service)
-        if [[ $command = "stop" \
-                 && $(readlink -f /etc/openvpn/client/nordvpn/updown) = "/etc/openvpn/vpnfailsafe.sh" ]]
+        if [[ $command = "stop" ]]
         then
-            test -z "$service" || systemctl $command $service
+            test -z "$service" || /etc/init.d/openvpn.nordvpn $command
             case "$1" in
                 -r|--reset)
                     source /usr/share/doc/vpnfailsafe/vpnfailsafe_reset.sh
-                    break
             esac
         else
             test -z "$service" && exit_msg 1 "No openvpn connection exist."
-            systemctl $command $service
+            /etc/init.d/openvpn.nordvpn $command
         fi
         ;;
     update)
