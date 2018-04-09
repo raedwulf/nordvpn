@@ -64,6 +64,8 @@ patch_config_file() {
 
     echo -e "# $s $p $(grep 'remote ' $f | awk '{ print $2 " " $3 }')\n\n$(cat $f)" > $f
     sed 's/^auth-user-pass.*$/auth-user-pass \/etc\/openvpn\/client\/nordvpn\/credentials.conf/g' -i $f
+    sed 's/^ping .*$/ping 10/g' -i $f
+    sed 's/^ping-restart.*$/ping-restart 60/g' -i $f
     install -D -m 444 $f $targetdir/conf/$bf
     ln -s $targetdir/conf/$bf $targetdir/../nordvpn_${s}_${p}.conf
 }
